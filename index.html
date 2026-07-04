@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Viciont Text - Editor de Comando</title>
+  <style>
+    @font-face {
+      font-family: 'Minecraft';
+      src: url('https://cdn.jsdelivr.net/gh/South-Paw/typeface-minecraft@master/public/MinecraftRegular-Bmg3.woff2') format('woff2');
+    }
+    :root {
+      --bg: #181825; --panel: #1e1e2e; --panel2: #11111b;
+      --accent: #cba6f7; --text: #cdd6f4; --muted: #7f849c;
+      --border: #313244; --danger: #f38ba8; --ok: #a6e3a1; --warn: #f9e2af;
+    }
+    * { box-sizing: border-box; }
+    body { background-color: var(--bg); color: var(--text); font-family:'Segoe UI',Tahoma,sans-serif; margin:0; padding:20px; display:flex; justify-content:center; }
+    .container { width:100%; max-width: 1000px; }
+    .panel { background: var(--panel); padding:20px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,.6); border:1px solid var(--border); margin-bottom:18px; }
+    h1 { text-align:center; margin-top:0; color:var(--accent); font-size:24px; }
+    h2 { font-size:15px; color:var(--accent); margin:0 0 12px 0; border-bottom:1px solid var(--border); padding-bottom:8px; }
+    label { display:block; margin-bottom:6px; font-size:12px; font-weight:600; color:#a6adc8; }
+    input, select, textarea { width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--panel2); color:var(--text); outline:none; font-family:inherit; font-size:13px; }
+    input:focus, select:focus, textarea:focus { border-color:var(--accent); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+
+    .btn { background:#313244; color:#cdd6f4; border:1px solid transparent; padding:6px 11px; border-radius:5px; cursor:pointer; font-weight:600; transition:all .15s; font-size:13px; white-space:nowrap; }
+    .btn:hover { background:#45475a; border-color:var(--accent); }
+    .btn.danger:hover { background:var(--danger); color:#11111b; }
+    .btn-lg { padding:10px 16px; font-size:14px; width:100%; }
+    .btn-accent { background:var(--accent); color:#11111b; }
+    .btn-accent:hover { background:#b4befe; }
+
+    .toolbar { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:4px; background:var(--panel2); padding:12px; border-radius:8px; border:1px solid var(--border); align-items:center; position: sticky; top: 10px; z-index: 5; }
+    .toolbar-hint { font-size:11px; color:var(--muted); margin:6px 0 16px 4px; }
+    .mc-color { font-family:'Minecraft',monospace; font-size:15px; text-shadow:2px 2px 0 #000; width:32px; padding:4px 0; }
+    .c-0{color:#000000;} .c-1{color:#0000AA;} .c-2{color:#00AA00;} .c-3{color:#00AAAA;}
+    .c-4{color:#AA0000;} .c-5{color:#AA00AA;} .c-6{color:#FFAA00;} .c-7{color:#AAAAAA;}
+    .c-8{color:#555555;} .c-9{color:#5555FF;} .c-a{color:#55FF55;} .c-b{color:#55FFFF;}
+    .c-c{color:#FF5555;} .c-d{color:#FF55FF;} .c-e{color:#FFFF55;} .c-f{color:#FFFFFF;}
+    .divider { width:100%; height:2px; background:var(--border); margin:4px 0; }
+    #i-custom-size { width:58px !important; text-align:center; }
+
+    .line-block { background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px; }
+    .line-block.empty-line { opacity:.65; }
+    .line-header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+    .line-title { font-size:12px; font-weight:700; color:var(--muted); }
+    .line-align { width:auto; display:inline-block; padding:5px 8px; font-size:12px; }
+    .line-controls { display:flex; gap:4px; }
+    .line-editor {
+      background: rgba(0,0,0,0.55); border-radius:6px; padding:10px 14px; min-height:20px;
+      font-family:'Minecraft', monospace; font-size:16px; color:#FFF; text-shadow:2px 2px 0 #000;
+      outline:none; word-wrap:break-word;
+    }
+    .line-editor:focus { box-shadow: 0 0 0 2px var(--accent) inset; }
+    .line-editor [data-mc-size] { border-bottom:1px dotted var(--accent); }
+    .lines-toolbar { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+
+    #preview-box-wrapper {
+      background-image:url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAZElEQVQ4T2NkYGD4z0AAMIIwEwPDI3QeTDCMRjZg1H78BvAwMDBsQ3Ng1H78BjAwMDBsR3Ng1H78BjAwMDBsR3Ng1H78BjAwMDBsR3Ng1H78BjAwMDBsRwMArgE512+EhyoAAAAASUVORK5CYII=');
+      background-size:64px 64px; image-rendering:pixelated; border-radius:8px; border:2px solid #45475a;
+      min-height:150px; display:flex; align-items:center; justify-content:center; padding:25px; overflow:auto;
+    }
+    #preview-box { padding:12px 20px; font-family:'Minecraft', monospace; font-size:16px; color:#FFF; text-shadow:2px 2px 0 #000; }
+    #preview-box .preview-line { min-height:1.3em; white-space:pre-wrap; }
+
+    .cmd-box { background:#000; color:var(--ok); font-family:monospace; padding:14px; border-radius:6px; border:1px solid #333; word-break:break-all; font-size:13px; min-height:20px; }
+    .warn-box { background:rgba(249,226,175,.1); border:1px solid var(--warn); color:var(--warn); border-radius:6px; padding:10px 12px; font-size:12px; margin-bottom:12px; }
+    .warn-box ul { margin:4px 0 0 18px; padding:0; }
+
+    .import-row { display:flex; gap:8px; align-items:flex-start; }
+    .import-row textarea { min-height:60px; font-family:monospace; font-size:12px; resize:vertical; }
+    .import-row button { flex-shrink:0; }
+    .transparent-toggle { display:flex; align-items:center; gap:6px; margin-top:6px; font-size:12px; color:var(--muted); }
+    .transparent-toggle input { width:auto; margin:0; }
+
+    /* Estilos para lista de comandos guardados */
+    .saved-item { display:flex; justify-content:space-between; align-items:center; background:var(--panel2); padding:12px; border-radius:8px; border:1px solid var(--border); gap: 10px; }
+    .saved-item-title { font-weight: 600; color: var(--accent); font-size: 14px; word-break: break-all; }
+    .saved-item-date { font-size: 11px; color: var(--muted); display: block; margin-top: 2px; }
+    .saved-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Viciont Text - Editor de Comando</h1>
+
+  <div class="panel">
+    <h2>Cargar un comando existente (opcional)</h2>
+    <div class="import-row">
+      <textarea id="import-text" placeholder="Pega aquí un comando /vctext completo para editarlo visualmente..."></textarea>
+      <button class="btn btn-accent" onclick="importCommand()">Cargar en el editor</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Configuración general</h2>
+    <div class="grid">
+      <div>
+        <label>Animación</label>
+        <select id="g-anim">
+          <option value="fade">Fade (Suave)</option>
+          <option value="default">Default</option>
+          <option value="izquierda">Desde Izquierda</option>
+          <option value="derecha">Desde Derecha</option>
+          <option value="arriba">Desde Arriba</option>
+          <option value="abajo">Desde Abajo</option>
+        </select>
+      </div>
+      <div>
+        <label>Posición</label>
+        <select id="g-pos">
+          <option value="center">Center</option>
+          <option value="topleft">Top Left</option>
+          <option value="topright">Top Right</option>
+          <option value="bottomleft">Bottom Left</option>
+          <option value="bottomright">Bottom Right</option>
+          <option value="custom">Custom (X,Y %)</option>
+        </select>
+      </div>
+      <div id="g-pos-custom-wrap" style="display:none;">
+        <label>X %, Y %</label>
+        <div style="display:flex; gap:6px;">
+          <input type="number" id="g-pos-x" value="50">
+          <input type="number" id="g-pos-y" value="50">
+        </div>
+      </div>
+      <div>
+        <label>Duración (segundos)</label>
+        <input type="number" id="g-dur" value="5" min="1">
+      </div>
+      <div>
+        <label>Tamaño global del recuadro</label>
+        <input type="number" id="g-gsize" value="0">
+      </div>
+      <div>
+        <label>Color de fondo</label>
+        <input type="color" id="g-bgcolor" value="#000000">
+        <div class="transparent-toggle">
+          <input type="checkbox" id="g-bg-transparent">
+          <label for="g-bg-transparent" style="margin:0;">Fondo transparente</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Texto</h2>
+    <div class="toolbar">
+      <button class="btn mc-color c-0" onclick="execCmd('foreColor', '#000000')">0</button>
+      <button class="btn mc-color c-1" onclick="execCmd('foreColor', '#0000AA')">1</button>
+      <button class="btn mc-color c-2" onclick="execCmd('foreColor', '#00AA00')">2</button>
+      <button class="btn mc-color c-3" onclick="execCmd('foreColor', '#00AAAA')">3</button>
+      <button class="btn mc-color c-4" onclick="execCmd('foreColor', '#AA0000')">4</button>
+      <button class="btn mc-color c-5" onclick="execCmd('foreColor', '#AA00AA')">5</button>
+      <button class="btn mc-color c-6" onclick="execCmd('foreColor', '#FFAA00')">6</button>
+      <button class="btn mc-color c-7" onclick="execCmd('foreColor', '#AAAAAA')">7</button>
+      <button class="btn mc-color c-8" onclick="execCmd('foreColor', '#555555')">8</button>
+      <button class="btn mc-color c-9" onclick="execCmd('foreColor', '#5555FF')">9</button>
+      <button class="btn mc-color c-a" onclick="execCmd('foreColor', '#55FF55')">a</button>
+      <button class="btn mc-color c-b" onclick="execCmd('foreColor', '#55FFFF')">b</button>
+      <button class="btn mc-color c-c" onclick="execCmd('foreColor', '#FF5555')">c</button>
+      <button class="btn mc-color c-d" onclick="execCmd('foreColor', '#FF55FF')">d</button>
+      <button class="btn mc-color c-e" onclick="execCmd('foreColor', '#FFFF55')">e</button>
+      <button class="btn mc-color c-f" onclick="execCmd('foreColor', '#FFFFFF')">f</button>
+      <input type="color" id="hex-text-pick" value="#cba6f7" style="width:32px; height:30px; padding:0; border:none; background:transparent; cursor:pointer;" onchange="execCmd('foreColor', this.value)">
+
+      <div class="divider"></div>
+
+      <button class="btn" style="font-weight:bold;" onclick="execCmd('bold')">Negrita</button>
+      <button class="btn" style="font-style:italic;" onclick="execCmd('italic')">Itálica</button>
+      <button class="btn" style="text-decoration:underline;" onclick="execCmd('underline')">Subrayado</button>
+      <button class="btn" style="text-decoration:line-through;" onclick="execCmd('strikeThrough')">Tachado</button>
+      <button class="btn" onclick="clearFormatting()">Limpiar Formato</button>
+
+      <div class="divider"></div>
+
+      <button class="btn" onclick="adjustSize(5)">+5%</button>
+      <button class="btn" onclick="adjustSize(1)">+1%</button>
+      <button class="btn" onclick="adjustSize(-1)">-1%</button>
+      <button class="btn" onclick="adjustSize(-5)">-5%</button>
+      <button class="btn" onclick="setAbsoluteSize(0)">0% Normal</button>
+      <input type="number" id="i-custom-size" placeholder="%" title="Tamaño personalizado (valor exacto)">
+      <button class="btn" onclick="applyCustomSizeBtn()">Aplicar %</button>
+
+      <div class="divider"></div>
+      <button class="btn" onclick="insertUnicode()">Añadir Unicode</button>
+    </div>
+    <div class="toolbar-hint">
+      Haz clic dentro de una línea, selecciona el texto que quieras y aplica el formato — puedes mezclar colores y estilos libremente dentro de una misma línea.<br>
+      <strong>Nota de tamaños:</strong> Si aplicas un cambio de tamaño a la mitad de una palabra, la web insertará un espacio invisible en el comando generado para que el mod de Minecraft (el cual divide las configuraciones por espacios) pueda entenderlo correctamente.
+    </div>
+
+    <div id="lines-container"></div>
+    <div class="lines-toolbar">
+      <button class="btn" onclick="addLine('text')">+ Línea de texto</button>
+      <button class="btn" onclick="addLine('empty')">+ Línea vacía (espaciador)</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Vista previa</h2>
+    <div id="preview-box-wrapper"><div id="preview-box"></div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Comando generado</h2>
+    <div id="warn-container"></div>
+    <div id="output-cmd" class="cmd-box"></div>
+    <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+      <button class="btn btn-lg btn-accent" id="copy-btn" onclick="copyCmd()" style="flex: 1;">Copiar comando al portapapeles</button>
+      <button class="btn btn-lg" onclick="saveCommand()" style="flex: 1; background: #89b4fa; color: #11111b;">Guardar este comando</button>
+    </div>
+  </div>
+
+  <div class="panel" id="saved-panel" style="display: none;">
+    <h2>Mensajes Guardados</h2>
+    <div id="saved-list" style="display: flex; flex-direction: column; gap: 8px;">
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const linesContainer = document.getElementById('lines-container');
+  const output = document.getElementById('output-cmd');
+  let activeEditor = null;
+  let savedRange = null;
+
+  const MC_HEX_TO_CODE = {
+    '#000000':'0', '#0000aa':'1', '#00aa00':'2', '#00aaaa':'3',
+    '#aa0000':'4', '#aa00aa':'5', '#ffaa00':'6', '#aaaaaa':'7',
+    '#555555':'8', '#5555ff':'9', '#55ff55':'a', '#55ffff':'b',
+    '#ff5555':'c', '#ff55ff':'d', '#ffff55':'e', '#ffffff':'f'
+  };
+  const MC_CODE_TO_HEX = {};
+  Object.entries(MC_HEX_TO_CODE).forEach(([hex, code]) => { MC_CODE_TO_HEX[code] = hex; });
+
+  // ==========================================================
+  //  SETTINGS GLOBALES
+  // ==========================================================
+  let settings = { globalSize: 0, animation: 'fade', bgColor: '#000000', bgTransparent: false, duration: 5, position: 'center', posX: 50, posY: 50 };
+  const gAnim = document.getElementById('g-anim');
+  const gPos = document.getElementById('g-pos');
+  const gPosCustomWrap = document.getElementById('g-pos-custom-wrap');
+  const gPosX = document.getElementById('g-pos-x');
+  const gPosY = document.getElementById('g-pos-y');
+  const gDur = document.getElementById('g-dur');
+  const gGsize = document.getElementById('g-gsize');
+  const gBgColor = document.getElementById('g-bgcolor');
+  const gBgTransparent = document.getElementById('g-bg-transparent');
+
+  function syncGlobalFromSettings() {
+    gAnim.value = settings.animation; gDur.value = settings.duration; gGsize.value = settings.globalSize;
+    gBgColor.value = settings.bgTransparent ? '#000000' : settings.bgColor;
+    gBgTransparent.checked = settings.bgTransparent;
+    if (['topleft','topright','bottomleft','bottomright','center'].includes(settings.position)) {
+      gPos.value = settings.position; gPosCustomWrap.style.display = 'none';
+    } else {
+      gPos.value = 'custom'; gPosCustomWrap.style.display = 'block';
+      gPosX.value = settings.posX; gPosY.value = settings.posY;
+    }
+  }
+  [gAnim, gDur, gGsize, gBgColor, gPosX, gPosY].forEach(el => {
+    el.addEventListener('input', () => {
+      settings.animation = gAnim.value;
+      settings.duration = parseInt(gDur.value, 10) || 1;
+      settings.globalSize = parseInt(gGsize.value, 10) || 0;
+      settings.bgColor = gBgColor.value;
+      settings.posX = parseFloat(gPosX.value) || 0;
+      settings.posY = parseFloat(gPosY.value) || 0;
+      updateOutputs();
+    });
+  });
+  gBgTransparent.addEventListener('change', () => { settings.bgTransparent = gBgTransparent.checked; updateOutputs(); });
+  gPos.addEventListener('change', () => {
+    settings.position = gPos.value;
+    gPosCustomWrap.style.display = gPos.value === 'custom' ? 'block' : 'none';
+    updateOutputs();
+  });
+
+  // ==========================================================
+  //  CREACIÓN / GESTIÓN DE LÍNEAS
+  // ==========================================================
+  function createLineBlock(type, alignment) {
+    const div = document.createElement('div');
+    div.className = 'line-block' + (type === 'empty' ? ' empty-line' : '');
+    div.dataset.type = type;
+
+    if (type === 'empty') {
+      div.innerHTML = `
+                <div class="line-header">
+                    <span class="line-title">Línea vacía (espaciadora)</span>
+                    <div class="line-controls">
+                        <button class="btn" data-action="line-up">↑</button>
+                        <button class="btn" data-action="line-down">↓</button>
+                        <button class="btn danger" data-action="line-delete">✕ Eliminar</button>
+                    </div>
+                </div>`;
+    } else {
+      div.innerHTML = `
+                <div class="line-header">
+                    <select class="line-align">
+                        <option value="center">Centrado</option>
+                        <option value="left">Izquierda</option>
+                        <option value="right">Derecha</option>
+                        <option value="justify">Justificado</option>
+                    </select>
+                    <div class="line-controls">
+                        <button class="btn" data-action="line-up">↑</button>
+                        <button class="btn" data-action="line-down">↓</button>
+                        <button class="btn danger" data-action="line-delete">✕ Eliminar</button>
+                    </div>
+                </div>
+                <div class="line-editor" contenteditable="true"></div>`;
+      div.querySelector('.line-align').value = alignment || 'center';
+    }
+    return div;
+  }
+
+  function addLine(type) {
+    const block = createLineBlock(type, 'center');
+    linesContainer.appendChild(block);
+    if (type === 'text') block.querySelector('.line-editor').focus();
+    updateOutputs();
+  }
+
+  function moveLineBlock(block, dir) {
+    if (dir === 'up' && block.previousElementSibling) block.parentNode.insertBefore(block, block.previousElementSibling);
+    else if (dir === 'down' && block.nextElementSibling) block.parentNode.insertBefore(block.nextElementSibling, block);
+    updateOutputs();
+  }
+  function deleteLineBlock(block) {
+    block.remove();
+    if (linesContainer.children.length === 0) linesContainer.appendChild(createLineBlock('text', 'center'));
+    updateOutputs();
+  }
+
+  linesContainer.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const block = btn.closest('.line-block');
+    const action = btn.dataset.action;
+    if (action === 'line-up') moveLineBlock(block, 'up');
+    else if (action === 'line-down') moveLineBlock(block, 'down');
+    else if (action === 'line-delete') deleteLineBlock(block);
+  });
+  linesContainer.addEventListener('change', (e) => { if (e.target.classList.contains('line-align')) updateOutputs(); });
+  linesContainer.addEventListener('input', (e) => { if (e.target.classList.contains('line-editor')) updateOutputs(); });
+  linesContainer.addEventListener('focusin', (e) => { if (e.target.classList.contains('line-editor')) activeEditor = e.target; });
+  linesContainer.addEventListener('keydown', (e) => {
+    if (e.target.classList.contains('line-editor') && e.key === 'Enter') e.preventDefault();
+  });
+  linesContainer.addEventListener('keyup', (e) => { if (e.target.classList.contains('line-editor')) saveCurrentSelection(); });
+  linesContainer.addEventListener('mouseup', (e) => { if (e.target.classList.contains('line-editor')) saveCurrentSelection(); });
+  linesContainer.addEventListener('paste', (e) => {
+    if (!e.target.classList.contains('line-editor')) return;
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text/plain').replace(/[\r\n]+/g, ' ');
+    document.execCommand('insertText', false, text);
+  });
+
+  document.querySelector('.toolbar').addEventListener('mousedown', saveCurrentSelection);
+
+  // ==========================================================
+  //  SELECCIÓN
+  // ==========================================================
+  function getTextOffset(root, node, offset) {
+    const range = document.createRange();
+    range.selectNodeContents(root);
+    range.setEnd(node, offset);
+    return range.toString().length;
+  }
+  function locateOffset(root, targetOffset) {
+    const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+    let node, charIndex = 0, lastNode = null;
+    while (node = tw.nextNode()) {
+      const len = node.textContent.length;
+      if (targetOffset <= charIndex + len) return { node, offset: targetOffset - charIndex };
+      charIndex += len; lastNode = node;
+    }
+    if (lastNode) return { node: lastNode, offset: lastNode.textContent.length };
+    return { node: root, offset: 0 };
+  }
+  function setRangeFromOffsets(root, start, end) {
+    const s = locateOffset(root, start), e = locateOffset(root, end);
+    const range = document.createRange();
+    range.setStart(s.node, s.offset); range.setEnd(e.node, e.offset);
+    return range;
+  }
+  function saveCurrentSelection() {
+    if (!activeEditor) return;
+    const sel = window.getSelection();
+    if (sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    if (!activeEditor.contains(range.commonAncestorContainer)) return;
+    savedRange = {
+      editor: activeEditor,
+      start: getTextOffset(activeEditor, range.startContainer, range.startOffset),
+      end: getTextOffset(activeEditor, range.endContainer, range.endOffset)
+    };
+  }
+  function restoreSavedSelection() {
+    if (!savedRange) return;
+    try {
+      const range = setRangeFromOffsets(savedRange.editor, savedRange.start, savedRange.end);
+      const sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(range);
+      activeEditor = savedRange.editor;
+    } catch (e) {}
+  }
+  function currentEditor() { return activeEditor || (savedRange && savedRange.editor) || null; }
+  function getEffectiveOffsets() {
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0 && activeEditor) {
+      const range = sel.getRangeAt(0);
+      if (activeEditor.contains(range.commonAncestorContainer)) {
+        return {
+          editor: activeEditor,
+          start: getTextOffset(activeEditor, range.startContainer, range.startOffset),
+          end: getTextOffset(activeEditor, range.endContainer, range.endOffset)
+        };
+      }
+    }
+    return savedRange;
+  }
+
+  // ==========================================================
+  //  COMANDOS DE FORMATO
+  // ==========================================================
+  function execCmd(command, value = null) {
+    restoreSavedSelection();
+    const ed = currentEditor();
+    if (!ed) { alert('Haz clic dentro de una línea de texto primero.'); return; }
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand(command, false, value);
+    ed.focus();
+    saveCurrentSelection();
+    updateOutputs();
+  }
+
+  function insertUnicode() {
+    const ed = currentEditor();
+    if (!ed) { alert('Haz clic dentro de una línea de texto primero.'); return; }
+    const code = prompt("Introduce el código unicode (Ej: \\uE001):");
+    if (code) {
+      restoreSavedSelection();
+      document.execCommand('insertText', false, code);
+      ed.focus();
+      saveCurrentSelection();
+      updateOutputs();
+    }
+  }
+
+  function clearFormatting() {
+    restoreSavedSelection();
+    const ed = currentEditor();
+    if (!ed) { alert('Haz clic dentro de una línea de texto primero.'); return; }
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      if (!range.collapsed) unwrapSizeSpansInRange(ed, range);
+    }
+    document.execCommand('removeFormat');
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('foreColor', false, '#ffffff');
+    ed.focus();
+    saveCurrentSelection();
+    updateOutputs();
+  }
+
+  // ==========================================================
+  //  TAMAÑO (Size Spans)
+  // ==========================================================
+  function expandToWordBoundaries(ed, start, end) {
+    const text = ed.textContent;
+    let s = start, e = end;
+    while (s > 0 && !/\s/.test(text[s - 1])) s--;
+    while (e < text.length && !/\s/.test(text[e])) e++;
+    return { start: s, end: e };
+  }
+  function getSizeAtOffset(ed, offset) {
+    const loc = locateOffset(ed, offset);
+    const el = loc.node.nodeType === 3 ? loc.node.parentElement : loc.node;
+    const sizeEl = el ? el.closest('[data-mc-size]') : null;
+    return sizeEl ? parseInt(sizeEl.getAttribute('data-mc-size'), 10) : 0;
+  }
+  function unwrapSizeSpansInRange(ed, range) {
+    const spans = Array.from(ed.querySelectorAll('[data-mc-size]'));
+    spans.forEach(span => {
+      if (range.intersectsNode(span)) {
+        while (span.firstChild) span.parentNode.insertBefore(span.firstChild, span);
+        span.parentNode.removeChild(span);
+      }
+    });
+  }
+  function applySizeToOffsets(ed, start, end, newSize) {
+    let range = setRangeFromOffsets(ed, start, end);
+    unwrapSizeSpansInRange(ed, range);
+    range = setRangeFromOffsets(ed, start, end);
+
+    if (newSize !== 0) {
+      const span = document.createElement('span');
+      span.setAttribute('data-mc-size', newSize);
+      span.title = newSize + '%';
+      if (start === end) {
+        span.innerHTML = '&#8203;';
+        range.insertNode(span);
+        const sel = window.getSelection();
+        const r = document.createRange();
+        r.setStart(span.firstChild, 1); r.collapse(true);
+        sel.removeAllRanges(); sel.addRange(r);
+      } else {
+        span.appendChild(range.extractContents());
+        range.insertNode(span);
+        const sel = window.getSelection();
+        const r = document.createRange();
+        r.selectNodeContents(span);
+        sel.removeAllRanges(); sel.addRange(r);
+      }
+    }
+    ed.focus();
+    activeEditor = ed;
+    saveCurrentSelection();
+    updateOutputs();
+  }
+  function adjustSize(delta) {
+    const offs = getEffectiveOffsets();
+    if (!offs) { alert('Selecciona texto primero (o coloca el cursor donde quieras escribir) dentro de una línea.'); return; }
+    let { editor: ed, start, end } = offs;
+    if (start !== end) { const w = expandToWordBoundaries(ed, start, end); start = w.start; end = w.end; }
+    applySizeToOffsets(ed, start, end, getSizeAtOffset(ed, start) + delta);
+  }
+  function setAbsoluteSize(val) {
+    const offs = getEffectiveOffsets();
+    if (!offs) { alert('Selecciona texto primero (o coloca el cursor donde quieras escribir) dentro de una línea.'); return; }
+    let { editor: ed, start, end } = offs;
+    if (start !== end) { const w = expandToWordBoundaries(ed, start, end); start = w.start; end = w.end; }
+    applySizeToOffsets(ed, start, end, val);
+  }
+  function applyCustomSizeBtn() {
+    const val = parseInt(document.getElementById('i-custom-size').value, 10);
+    if (isNaN(val)) { alert('Escribe un número válido de porcentaje.'); return; }
+    setAbsoluteSize(val);
+  }
+
+  // ==========================================================
+  //  EXTRACCIÓN DE ESTRUCTURA Y CONSTRUCCIÓN DEL COMANDO
+  // ==========================================================
+  function rgbToHex(rgbStr) {
+    if (!rgbStr) return '#ffffff';
+    const m = rgbStr.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
+    if (m) {
+      return "#" +
+        ("0" + parseInt(m[1],10).toString(16)).slice(-2) +
+        ("0" + parseInt(m[2],10).toString(16)).slice(-2) +
+        ("0" + parseInt(m[3],10).toString(16)).slice(-2);
+    }
+    return '#ffffff';
+  }
+
+  function parseLineBlockToStructure(block) {
+    if (block.dataset.type === 'empty') return { type: 'empty' };
+    const ed = block.querySelector('.line-editor');
+    const alignSelect = block.querySelector('.line-align');
+    const alignment = alignSelect ? alignSelect.value : 'center';
+    const textContent = ed.textContent.replace(/\u200B/g, '');
+    if (textContent.trim() === '') return { type: 'empty' };
+
+    const segments = [];
+    const tw = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT, null, false);
+    let node;
+    while (node = tw.nextNode()) {
+      const text = node.textContent.replace(/\u200B/g, '').replace(/\n/g, '');
+      if (text === '') continue;
+      const parent = node.parentElement;
+      const css = window.getComputedStyle(parent);
+      const sizeEl = parent.closest('[data-mc-size]');
+      const size = sizeEl ? parseInt(sizeEl.getAttribute('data-mc-size'), 10) : 0;
+      const color = rgbToHex(css.color).toLowerCase();
+      const bold = (css.fontWeight === 'bold' || parseInt(css.fontWeight) >= 700);
+      const italic = css.fontStyle === 'italic';
+      const underline = css.textDecorationLine.includes('underline');
+      const strike = css.textDecorationLine.includes('line-through');
+      const last = segments[segments.length - 1];
+
+      if (last && last.color === color && last.bold === bold && last.italic === italic && last.underline === underline && last.strike === strike && last.size === size) {
+        last.text += text;
+      } else {
+        segments.push({ text, color, bold, italic, underline, strike, size });
+      }
+    }
+    if (segments.length === 0) return { type: 'empty' };
+    return { type: 'text', alignment, segments };
+  }
+
+  function getAllLinesStructure() {
+    return Array.from(linesContainer.children).map(parseLineBlockToStructure);
+  }
+
+  function colorCode(hex) {
+    hex = (hex || '#ffffff').toLowerCase();
+    if (MC_HEX_TO_CODE[hex]) return '&' + MC_HEX_TO_CODE[hex];
+    return '&#' + hex.replace('#', '');
+  }
+
+  function buildLineRaw(line, sizeState) {
+    if (line.type === 'empty') return '';
+    let out = '';
+    if (line.alignment && line.alignment !== 'center') out += `[${line.alignment}] `;
+
+    let styleState = { color: '#ffffff', bold: false, italic: false, underline: false, strike: false };
+
+    line.segments.forEach((seg, idx) => {
+      if (!seg.text) return;
+
+      const match = seg.text.match(/^(\s*)([\s\S]*)$/);
+      const leadingSpaces = match[1];
+      const actualText = match[2];
+
+      if (actualText === '') {
+        out += leadingSpaces;
+        return;
+      }
+
+      let prefix = '';
+      let colorChanged = seg.color.toLowerCase() !== styleState.color.toLowerCase();
+      let turningOff = (styleState.bold && !seg.bold) || (styleState.italic && !seg.italic) ||
+        (styleState.underline && !seg.underline) || (styleState.strike && !seg.strike);
+
+      let needsReset = colorChanged || turningOff;
+      let injectedSpace = '';
+
+      if (seg.size !== sizeState.value) {
+        if (idx > 0 && leadingSpaces === '') {
+          injectedSpace = ' ';
+        }
+
+        prefix += seg.size + '%';
+        sizeState.value = seg.size;
+        needsReset = true;
+        colorChanged = true;
+      }
+
+      if (needsReset) {
+        if (colorChanged) prefix += colorCode(seg.color);
+        else {
+          prefix += '&r';
+          if (seg.color.toLowerCase() !== '#ffffff') prefix += colorCode(seg.color);
+        }
+        if (seg.bold) prefix += '&l';
+        if (seg.italic) prefix += '&o';
+        if (seg.underline) prefix += '&n';
+        if (seg.strike) prefix += '&m';
+      } else {
+        if (seg.bold && !styleState.bold) prefix += '&l';
+        if (seg.italic && !styleState.italic) prefix += '&o';
+        if (seg.underline && !styleState.underline) prefix += '&n';
+        if (seg.strike && !styleState.strike) prefix += '&m';
+      }
+
+      styleState = { color: seg.color, bold: seg.bold, italic: seg.italic, underline: seg.underline, strike: seg.strike };
+      out += leadingSpaces + injectedSpace + prefix + actualText;
+    });
+    return out;
+  }
+
+  function buildCommand() {
+    const lines = getAllLinesStructure();
+    const sizeState = { value: 0 };
+    const lineStrings = lines.map(line => buildLineRaw(line, sizeState));
+    const textArg = lineStrings.join('\\n');
+    const pos = settings.position === 'custom' ? `${settings.posX},${settings.posY}` : settings.position;
+    const bg = settings.bgTransparent ? 'none' : settings.bgColor;
+    return `/vctext ${settings.globalSize} ${settings.animation} ${bg} ${settings.duration} ${pos} ${textArg}`;
+  }
+
+  // ==========================================================
+  //  RENDERIZADO DE VISTA PREVIA
+  // ==========================================================
+  function esc(str) { return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function validateWarnings(lines) {
+    const warnings = [];
+    lines.forEach((line, li) => {
+      if (line.type !== 'text') return;
+      line.segments.forEach(seg => {
+        if (!seg.text) return;
+        const firstWord = seg.text.trim().split(' ')[0];
+        if (/^-?\d+%/.test(firstWord)) warnings.push(`Línea ${li+1}: el texto "${seg.text}" empieza con un patrón "número%" — podría leerse como tamaño si cambias el mod.`);
+        if (seg.text.includes('&')) warnings.push(`Línea ${li+1}: el texto contiene "&" — puede interpretarse como código de color.`);
+      });
+    });
+    return warnings;
+  }
+  function hexToRgba(hex, alpha) {
+    hex = hex.replace('#','');
+    if (hex.length !== 6) return `rgba(0,0,0,${alpha})`;
+    const r = parseInt(hex.substring(0,2),16), g = parseInt(hex.substring(2,4),16), b = parseInt(hex.substring(4,6),16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  function renderPreview(lines) {
+    const box = document.getElementById('preview-box');
+    box.innerHTML = '';
+    box.style.backgroundColor = settings.bgTransparent ? 'transparent' : hexToRgba(settings.bgColor, 0.55);
+
+    const scaleRatio = Math.max(0.1, (2.4 + settings.globalSize * 0.15) / 2.4);
+    box.style.fontSize = (16 * scaleRatio) + 'px';
+
+    lines.forEach(line => {
+      const lineDiv = document.createElement('div');
+      lineDiv.className = 'preview-line';
+      lineDiv.style.textAlign = line.type === 'empty' ? 'center' : line.alignment;
+
+      if (line.type === 'text') {
+        let previousSize = 0;
+        line.segments.forEach((seg, i) => {
+          if (!seg.text) return;
+
+          const match = seg.text.match(/^(\s*)([\s\S]*)$/);
+          const leadingSpaces = match[1];
+          const actualText = match[2];
+
+          let forcedSpace = '';
+          if (i > 0 && seg.size !== previousSize && leadingSpaces === '' && actualText !== '') {
+            forcedSpace = ' ';
+          }
+
+          const span = document.createElement('span');
+          span.textContent = leadingSpaces + forcedSpace + actualText;
+          span.style.color = seg.color;
+          if (seg.bold) span.style.fontWeight = 'bold';
+          if (seg.italic) span.style.fontStyle = 'italic';
+
+          let deco = [];
+          if (seg.underline) deco.push('underline');
+          if (seg.strike) deco.push('line-through');
+          if (deco.length) span.style.textDecoration = deco.join(' ');
+
+          const segScale = 1.0 + (seg.size * 0.01);
+          span.style.fontSize = segScale + 'em';
+          span.style.verticalAlign = 'middle';
+
+          lineDiv.appendChild(span);
+
+          if (actualText !== '') {
+            previousSize = seg.size;
+          }
+        });
+      }
+      box.appendChild(lineDiv);
+    });
+  }
+
+  function updateOutputs() {
+    const lines = getAllLinesStructure();
+    output.innerText = buildCommand();
+    renderPreview(lines);
+    const warnings = validateWarnings(lines);
+    const c = document.getElementById('warn-container');
+    c.innerHTML = warnings.length ? `<div class="warn-box"><strong>Aviso:</strong><ul>${warnings.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>` : '';
+  }
+
+  // ==========================================================
+  //  IMPORTADOR
+  // ==========================================================
+  function unescapeUnicodeJS(text) { return text.replace(/\\u([0-9A-Fa-f]{4})/g, (m, hex) => String.fromCharCode(parseInt(hex, 16))); }
+  function parseColorRuns(token, startStyle) {
+    const runs = [];
+    let currentStyle = { ...startStyle };
+    const colorRegex = /&#([A-Fa-f0-9]{6})|&([0-9a-fk-orA-FK-OR])/g;
+    let lastEnd = 0, m;
+    while ((m = colorRegex.exec(token)) !== null) {
+      if (m.index > lastEnd) runs.push({ text: token.slice(lastEnd, m.index), style: { ...currentStyle } });
+      if (m[1]) currentStyle = { color: '#' + m[1].toLowerCase(), bold: false, italic: false, underline: false, strike: false };
+      else {
+        const code = m[2].toLowerCase();
+        if (MC_CODE_TO_HEX[code]) currentStyle = { color: MC_CODE_TO_HEX[code], bold: false, italic: false, underline: false, strike: false };
+        else if (code === 'l') currentStyle = { ...currentStyle, bold: true };
+        else if (code === 'm') currentStyle = { ...currentStyle, strike: true };
+        else if (code === 'n') currentStyle = { ...currentStyle, underline: true };
+        else if (code === 'o') currentStyle = { ...currentStyle, italic: true };
+        else if (code === 'r') currentStyle = { color: '#ffffff', bold: false, italic: false, underline: false, strike: false };
+      }
+      lastEnd = colorRegex.lastIndex;
+    }
+    if (lastEnd < token.length) runs.push({ text: token.slice(lastEnd), style: { ...currentStyle } });
+    return { runs, finalStyle: currentStyle };
+  }
+
+  function lineToAtoms(rawLine, scaleRef) {
+    const tokens = rawLine.split(' ');
+    let style = { color: '#ffffff', bold: false, italic: false, underline: false, strike: false };
+    const atoms = [];
+
+    tokens.forEach((tokenOrig, tIdx) => {
+      let token = tokenOrig;
+      if (token === '') {
+        atoms.push({ text: ' ', color: style.color, bold: style.bold, italic: style.italic, underline: style.underline, strike: style.strike, size: scaleRef.value });
+        return;
+      }
+
+      const m = token.match(/^(-?\d+)%([\s\S]*)$/);
+      if (m) { scaleRef.value = parseInt(m[1], 10); token = m[2]; }
+
+      const { runs, finalStyle } = parseColorRuns(token, style);
+      style = finalStyle;
+
+      runs.forEach((run, rIdx) => {
+        if (run.text === '') return;
+        const prefixSpace = (tIdx > 0 && rIdx === 0) ? ' ' : '';
+        atoms.push({
+          text: prefixSpace + run.text,
+          color: run.style.color,
+          bold: run.style.bold,
+          italic: run.style.italic,
+          underline: run.style.underline,
+          strike: run.style.strike,
+          size: scaleRef.value
+        });
+      });
+    });
+    return atoms;
+  }
+
+  function styleEquals(a, b) { return a.color.toLowerCase() === b.color.toLowerCase() && a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.strike === b.strike; }
+
+  function atomsToSegments(atoms) {
+    const segments = [];
+    atoms.forEach(atom => {
+      const last = segments[segments.length - 1];
+      const sameStyle = last && styleEquals(last, atom) && last.size === atom.size;
+      if (sameStyle) {
+        last.text += atom.text;
+      } else {
+        segments.push({ ...atom });
+      }
+    });
+    return segments;
+  }
+
+  function applyStructureToLines(lines) {
+    linesContainer.innerHTML = '';
+    lines.forEach(line => {
+      if (line.type === 'empty') {
+        linesContainer.appendChild(createLineBlock('empty'));
+      } else {
+        const block = createLineBlock('text', line.alignment);
+        const ed = block.querySelector('.line-editor');
+        line.segments.forEach((seg, idx) => {
+          if (!seg.text) return;
+          const span = document.createElement('span');
+          span.style.color = seg.color;
+          if (seg.bold) span.style.fontWeight = 'bold';
+          if (seg.italic) span.style.fontStyle = 'italic';
+          let deco = [];
+          if (seg.underline) deco.push('underline');
+          if (seg.strike) deco.push('line-through');
+          if (deco.length) span.style.textDecoration = deco.join(' ');
+
+          span.textContent = seg.text;
+
+          if (seg.size && seg.size !== 0) { span.setAttribute('data-mc-size', seg.size); span.title = seg.size + '%'; }
+          ed.appendChild(span);
+        });
+        linesContainer.appendChild(block);
+      }
+    });
+    if (!linesContainer.children.length) linesContainer.appendChild(createLineBlock('text', 'center'));
+  }
+
+  function importCommand() {
+    const raw = document.getElementById('import-text').value.trim();
+    if (!raw) { alert('Pega primero un comando /vctext.'); return; }
+    try {
+      let s = raw;
+      if (s.startsWith('/vctext')) s = s.slice(7).trim();
+      const parts = [];
+      let rest = s;
+      for (let i = 0; i < 5; i++) {
+        const m = rest.match(/^(\S+)\s+([\s\S]*)$/);
+        if (!m) throw new Error('El comando parece incompleto (faltan parámetros antes del texto).');
+        parts.push(m[1]); rest = m[2];
+      }
+      const [gsizeStr, animationStr, bgColorStr, durationStr, posStr] = parts;
+      const text = rest;
+
+      settings.globalSize = parseInt(gsizeStr, 10) || 0;
+      settings.animation = animationStr.toLowerCase();
+      settings.duration = parseInt(durationStr, 10) || 5;
+      const bgLower = bgColorStr.toLowerCase();
+      if (bgLower === 'none' || bgLower === 'transparent') settings.bgTransparent = true;
+      else { settings.bgTransparent = false; settings.bgColor = bgColorStr.startsWith('#') ? bgColorStr : ('#' + bgColorStr); }
+      if (posStr.includes(',')) {
+        const [x, y] = posStr.split(',');
+        settings.position = 'custom'; settings.posX = parseFloat(x) || 0; settings.posY = parseFloat(y) || 0;
+      } else settings.position = posStr.toLowerCase();
+
+      const unescaped = unescapeUnicodeJS(text).replace(/\\n/g, '\n');
+      const rawLines = unescaped.split('\n');
+      const scaleRef = { value: 0 };
+      const newLines = [];
+      rawLines.forEach(rawLineOrig => {
+        let rawLine = rawLineOrig.trim();
+        let alignment = 'center';
+        if (rawLine.startsWith('[left]')) { alignment = 'left'; rawLine = rawLine.slice(6).trim(); }
+        else if (rawLine.startsWith('[center]')) { alignment = 'center'; rawLine = rawLine.slice(8).trim(); }
+        else if (rawLine.startsWith('[right]')) { alignment = 'right'; rawLine = rawLine.slice(7).trim(); }
+        else if (rawLine.startsWith('[justify]')) { alignment = 'justify'; rawLine = rawLine.slice(9).trim(); }
+        if (rawLine === '') { newLines.push({ type: 'empty' }); return; }
+        const atoms = lineToAtoms(rawLine, scaleRef);
+        const segments = atomsToSegments(atoms);
+        newLines.push({ type: 'text', alignment, segments });
+      });
+      if (newLines.length === 0) newLines.push({ type: 'empty' });
+
+      applyStructureToLines(newLines);
+      syncGlobalFromSettings();
+      updateOutputs();
+      document.getElementById('import-text').value = '';
+    } catch (err) {
+      alert('No se pudo interpretar el comando: ' + err.message);
+    }
+  }
+
+  function copyCmd() {
+    navigator.clipboard.writeText(output.innerText).then(() => {
+      const btn = document.getElementById('copy-btn');
+      const old = btn.innerText;
+      btn.innerText = '¡Comando copiado!';
+      setTimeout(() => { btn.innerText = old; }, 1800);
+    });
+  }
+
+  // ==========================================================
+  //  SISTEMA DE GUARDADO (LOCALSTORAGE)
+  // ==========================================================
+  const LOCAL_STORAGE_KEY = 'vctmedia_saved_commands';
+
+  function getSavedCommands() {
+    try { return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || []; }
+    catch (e) { return []; }
+  }
+
+  function saveCommand() {
+    const cmd = output.innerText.trim();
+    if (!cmd) return alert("No hay ningún comando para guardar.");
+
+    const name = prompt("Dale un nombre a este comando (Ej: Mensaje Misión 1):");
+    if (!name) return; // Si cancela o deja vacío, no hacemos nada
+
+    const savedList = getSavedCommands();
+    const dateStr = new Date().toLocaleString();
+
+    savedList.push({
+      id: Date.now().toString(),
+      name: name,
+      cmd: cmd,
+      date: dateStr
+    });
+
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(savedList));
+    renderSavedCommands();
+  }
+
+  function deleteCommand(id) {
+    if (!confirm("¿Seguro que quieres borrar este comando guardado?")) return;
+
+    const savedList = getSavedCommands().filter(item => item.id !== id);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(savedList));
+    renderSavedCommands();
+  }
+
+  function renderSavedCommands() {
+    const savedList = getSavedCommands();
+    const panel = document.getElementById('saved-panel');
+    const listDiv = document.getElementById('saved-list');
+
+    if (savedList.length === 0) {
+      panel.style.display = 'none';
+      return;
+    }
+
+    panel.style.display = 'block';
+    listDiv.innerHTML = '';
+
+    savedList.slice().reverse().forEach(item => { // Invertimos para que el más nuevo salga arriba
+      const div = document.createElement('div');
+      div.className = 'saved-item';
+
+      // Textos
+      const infoDiv = document.createElement('div');
+      infoDiv.innerHTML = `
+                <div class="saved-item-title">${esc(item.name)}</div>
+                <span class="saved-item-date">${item.date}</span>
+            `;
+
+      // Botones
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'saved-item-actions';
+
+      const btnLoad = document.createElement('button');
+      btnLoad.className = 'btn';
+      btnLoad.innerText = 'Cargar al Editor';
+      btnLoad.onclick = () => {
+        document.getElementById('import-text').value = item.cmd;
+        importCommand();
+        window.scrollTo({top: 0, behavior: 'smooth'}); // Sube al inicio suavemente
+      };
+
+      const btnCopy = document.createElement('button');
+      btnCopy.className = 'btn';
+      btnCopy.innerText = 'Copiar';
+      btnCopy.onclick = () => {
+        navigator.clipboard.writeText(item.cmd);
+        btnCopy.innerText = '¡Copiado!';
+        setTimeout(() => btnCopy.innerText = 'Copiar', 1500);
+      };
+
+      const btnDel = document.createElement('button');
+      btnDel.className = 'btn danger';
+      btnDel.innerText = '✕';
+      btnDel.title = 'Eliminar';
+      btnDel.onclick = () => deleteCommand(item.id);
+
+      actionsDiv.appendChild(btnLoad);
+      actionsDiv.appendChild(btnCopy);
+      actionsDiv.appendChild(btnDel);
+
+      div.appendChild(infoDiv);
+      div.appendChild(actionsDiv);
+      listDiv.appendChild(div);
+    });
+  }
+
+  // Inicializar todo al arrancar
+  syncGlobalFromSettings();
+  renderSavedCommands(); // Cargar la lista guardada al inicio
+  const firstBlock = createLineBlock('text', 'center');
+  firstBlock.querySelector('.line-editor').textContent = '¡Hola Mundo!';
+  linesContainer.appendChild(firstBlock);
+  updateOutputs();
+</script>
+</body>
+</html>
