@@ -842,10 +842,16 @@
   //  IMPORTADOR
   // ==========================================================
   function unescapeUnicodeJS(text) { return text.replace(/\\u([0-9A-Fa-f]{4})/g, (m, hex) => String.fromCharCode(parseInt(hex, 16))); }
+
   function parseColorRuns(token, startStyle) {
     const runs = [];
     let currentStyle = { ...startStyle };
-    const colorRegex = /&#([A-Fa-f0-9]{6})|&([0-9a-fk-orA-FK-OR+\-])/g;
+
+    // 🔥 AQUI ESTA LA REPARACION:
+    // Se ha quitado el "+" y el "-" de la expresión regular para que el editor
+    // no los consuma al importar y los mantenga como texto visible.
+    const colorRegex = /&#([A-Fa-f0-9]{6})|&([0-9a-fk-orA-FK-OR])/g;
+
     let lastEnd = 0, m;
     while ((m = colorRegex.exec(token)) !== null) {
       if (m.index > lastEnd) runs.push({ text: token.slice(lastEnd, m.index), style: { ...currentStyle } });
@@ -853,8 +859,7 @@
       else {
         const code = m[2].toLowerCase();
         if (MC_CODE_TO_HEX[code]) currentStyle = { color: MC_CODE_TO_HEX[code], bold: false, italic: false, underline: false, strike: false };
-        else if (code === '+') {} // Ignite flag on web handled in renderPreview
-        else if (code === '-') {}
+        // Borramos las dos líneas anteriores que bloqueaban el + y -
         else if (code === 'l') currentStyle = { ...currentStyle, bold: true };
         else if (code === 'm') currentStyle = { ...currentStyle, strike: true };
         else if (code === 'n') currentStyle = { ...currentStyle, underline: true };
@@ -1049,7 +1054,7 @@
     savedList.push({
       id: Date.now().toString(),
       name: name,
-      cmd: cmd, // Se guarda el del Mod por defecto para que sea más limpio al reimportar
+      cmd: cmd,
       date: dateStr
     });
 
