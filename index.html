@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Viciont Text- Editor de Comando</title>
+  <title>Viciont Text - Editor de Comando</title>
   <style>
     @font-face {
       font-family: 'Minecraft';
@@ -65,16 +65,34 @@
     #preview-box { padding:12px 20px; font-family:'Minecraft', monospace; font-size:16px; color:#FFF; text-shadow:2px 2px 0 #000; }
     #preview-box .preview-line { min-height:1.3em; white-space:pre-wrap; }
 
+    /* Animación del Brillo */
+    @keyframes mc-glow-anim {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.7) drop-shadow(0 0 4px rgba(255,255,255,0.6)); }
+    }
+    .glow-text { animation: mc-glow-anim 1.5s infinite ease-in-out; }
+
     .cmd-box { background:#000; color:var(--ok); font-family:monospace; padding:14px; border-radius:6px; border:1px solid #333; word-break:break-all; font-size:13px; min-height:20px; }
     .warn-box { background:rgba(249,226,175,.1); border:1px solid var(--warn); color:var(--warn); border-radius:6px; padding:10px 12px; font-size:12px; margin-bottom:12px; }
     .warn-box ul { margin:4px 0 0 18px; padding:0; }
 
-    .import-row { display:flex; gap:8px; align-items:flex-start; }
+    .import-row { display:flex; gap:8px; align-items:center; }
     .import-row textarea { min-height:60px; font-family:monospace; font-size:12px; resize:vertical; }
     .import-row button { flex-shrink:0; }
     .transparent-toggle { display:flex; align-items:center; gap:6px; margin-top:6px; font-size:12px; color:var(--muted); }
     .transparent-toggle input { width:auto; margin:0; }
-    .checkbox-container { display:flex; align-items:center; gap:8px; padding-top:12px; color:var(--text); font-size:13px; font-weight:600; }
+
+    /* Toggle Switch Hermoso */
+    .sync-row { display: flex; align-items: center; justify-content: space-between; background: var(--panel2); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-top: 15px; }
+    .sync-info { display: flex; flex-direction: column; gap: 4px; }
+    .sync-title { font-size: 14px; font-weight: 600; color: var(--text); }
+    .sync-desc { font-size: 11px; color: var(--muted); }
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border); transition: .3s; border-radius: 24px; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: var(--text); transition: .3s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(20px); background-color: #11111b; }
 
     /* Estilos para lista de comandos guardados */
     .saved-item { display:flex; justify-content:space-between; align-items:center; background:var(--panel2); padding:12px; border-radius:8px; border:1px solid var(--border); gap: 10px; }
@@ -89,8 +107,8 @@
 
   <div class="panel">
     <h2>Cargar un comando existente (opcional)</h2>
-    <div class="import-row">
-      <textarea id="import-text" placeholder="Pega aquí un comando /vctext completo para editarlo visualmente..."></textarea>
+    <div class="import-row" style="align-items: flex-start;">
+      <textarea id="import-text" placeholder="Pega aquí un comando /vctext o /viciontmedia completo para editarlo visualmente..."></textarea>
       <button class="btn btn-accent" onclick="importCommand()">Cargar en el editor</button>
     </div>
   </div>
@@ -144,9 +162,16 @@
         </div>
       </div>
     </div>
-    <div class="checkbox-container">
-      <input type="checkbox" id="g-sync" checked>
-      <label for="g-sync" style="margin:0; font-size:13px; cursor:pointer;" title="Si está activo, al actualizar un texto no repetirá la animación de entrada.">Sincronizar (Evitar parpadeos al actualizar cronómetros)</label>
+
+    <div class="sync-row">
+      <div class="sync-info">
+        <span class="sync-title">Sincronizar Cronómetros</span>
+        <span class="sync-desc">Evita que la animación de entrada parpadee o se repita al actualizar un texto continuamente.</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="g-sync" checked>
+        <span class="slider"></span>
+      </label>
     </div>
   </div>
 
@@ -196,7 +221,7 @@
     </div>
     <div class="toolbar-hint">
       Haz clic dentro de una línea, selecciona el texto que quieras y aplica el formato. <br>
-      <strong>✨ Brillo ON:</strong> Al poner esto, la onda mágica empezará en ese punto y seguirá hasta que pongas un <strong>❌ Brillo OFF</strong>. (Solo lo verás brillar dentro del juego).
+      <strong>✨ Brillo ON:</strong> Si seleccionas texto y pulsas este botón, se aplicará el brillo automáticamente a tu selección.
     </div>
 
     <div id="lines-container"></div>
@@ -212,12 +237,22 @@
   </div>
 
   <div class="panel">
-    <h2>Comando generado</h2>
+    <h2>Comandos Generados</h2>
     <div id="warn-container"></div>
-    <div id="output-cmd" class="cmd-box"></div>
+
+    <label style="margin-top:10px; color:var(--accent);">Para el Mod (Cliente):</label>
+    <div id="output-cmd-mod" class="cmd-box"></div>
+
+    <label style="margin-top:10px; color:var(--accent);">Para el Plugin (Servidor):</label>
+    <div class="import-row" style="margin-bottom: 8px;">
+      <input type="text" id="plugin-target" value="@a" style="width: 80px;" title="Jugador objetivo" oninput="updateOutputs()">
+      <div id="output-cmd-plugin" class="cmd-box" style="flex-grow: 1; min-height: 20px; display: flex; align-items: center;"></div>
+    </div>
+
     <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
-      <button class="btn btn-lg btn-accent" id="copy-btn" onclick="copyCmd()" style="flex: 1;">Copiar comando al portapapeles</button>
-      <button class="btn btn-lg" onclick="saveCommand()" style="flex: 1; background: #89b4fa; color: #11111b;">Guardar este comando</button>
+      <button class="btn btn-lg btn-accent" onclick="copyCmd('mod', this)" style="flex: 1;">Copiar Cmd Mod</button>
+      <button class="btn btn-lg btn-accent" onclick="copyCmd('plugin', this)" style="flex: 1;">Copiar Cmd Plugin</button>
+      <button class="btn btn-lg" onclick="saveCommand()" style="flex: 1; background: #89b4fa; color: #11111b;">Guardar Comando</button>
     </div>
   </div>
 
@@ -231,7 +266,6 @@
 
 <script>
   const linesContainer = document.getElementById('lines-container');
-  const output = document.getElementById('output-cmd');
   let activeEditor = null;
   let savedRange = null;
 
@@ -438,7 +472,7 @@
   }
 
   // ==========================================================
-  //  COMANDOS DE FORMATO
+  //  COMANDOS DE FORMATO Y MAGIA
   // ==========================================================
   function execCmd(command, value = null) {
     restoreSavedSelection();
@@ -451,24 +485,20 @@
     updateOutputs();
   }
 
-  function insertUnicode() {
-    const ed = currentEditor();
-    if (!ed) { alert('Haz clic dentro de una línea de texto primero.'); return; }
-    const code = prompt("Introduce el código unicode (Ej: \\uE001):");
-    if (code) {
-      restoreSavedSelection();
-      document.execCommand('insertText', false, code);
-      ed.focus();
-      saveCurrentSelection();
-      updateOutputs();
-    }
-  }
-
   function insertMagicText(tag) {
     const ed = currentEditor();
     if (!ed) { alert('Haz clic dentro de una línea de texto primero.'); return; }
     restoreSavedSelection();
-    document.execCommand('insertText', false, tag);
+
+    const sel = window.getSelection();
+    // Envolver selección si existe y presionó Brillo ON (&+)
+    if (sel.rangeCount > 0 && !sel.isCollapsed && tag === '&+') {
+      const selectedText = sel.getRangeAt(0).toString();
+      document.execCommand('insertText', false, '&+' + selectedText + '&-');
+    } else {
+      document.execCommand('insertText', false, tag);
+    }
+
     ed.focus();
     saveCurrentSelection();
     updateOutputs();
@@ -657,7 +687,6 @@
         if (idx > 0 && leadingSpaces === '') {
           injectedSpace = ' ';
         }
-
         prefix += seg.size + '%';
         sizeState.value = seg.size;
         needsReset = true;
@@ -687,15 +716,20 @@
     return out;
   }
 
-  function buildCommand() {
+  function buildCommand(type) {
     const lines = getAllLinesStructure();
     const sizeState = { value: 0 };
     const lineStrings = lines.map(line => buildLineRaw(line, sizeState));
     const textArg = lineStrings.join('\\n');
     const pos = settings.position === 'custom' ? `${settings.posX},${settings.posY}` : settings.position;
     const bg = settings.bgTransparent ? 'none' : settings.bgColor;
-    // Ahora el comando de /vctext incluye el booleano 'sync'
-    return `/vctext ${settings.globalSize} ${settings.animation} ${bg} ${settings.duration} ${pos} ${settings.sync} ${textArg}`;
+    const syncBool = settings.sync ? 'true' : 'false';
+
+    if (type === 'plugin') {
+      const target = document.getElementById('plugin-target').value || '@a';
+      return `/viciontmedia ${target} text ${settings.globalSize} ${settings.animation} ${bg} ${settings.duration} ${pos} ${syncBool} ${textArg}`;
+    }
+    return `/vctext ${settings.globalSize} ${settings.animation} ${bg} ${settings.duration} ${pos} ${syncBool} ${textArg}`;
   }
 
   // ==========================================================
@@ -711,7 +745,9 @@
         if (!seg.text) return;
         const firstWord = seg.text.trim().split(' ')[0];
         if (/^-?\d+%/.test(firstWord)) warnings.push(`Línea ${li+1}: el texto "${seg.text}" empieza con un patrón "número%" — podría leerse como tamaño si cambias el mod.`);
-        if (seg.text.includes('&')) warnings.push(`Línea ${li+1}: el texto contiene "&" — puede interpretarse como código de color.`);
+        // Filtramos que las advertencias no apliquen a tags de magia (&+ / &-)
+        const cleanText = seg.text.replace(/&\+/g, '').replace(/&-/g, '');
+        if (cleanText.includes('&')) warnings.push(`Línea ${li+1}: el texto contiene "&" — puede interpretarse como código de color.`);
       });
     });
     return warnings;
@@ -722,6 +758,7 @@
     const r = parseInt(hex.substring(0,2),16), g = parseInt(hex.substring(2,4),16), b = parseInt(hex.substring(4,6),16);
     return `rgba(${r},${g},${b},${alpha})`;
   }
+
   function renderPreview(lines) {
     const box = document.getElementById('preview-box');
     box.innerHTML = '';
@@ -729,6 +766,8 @@
 
     const scaleRatio = Math.max(0.1, (2.4 + settings.globalSize * 0.15) / 2.4);
     box.style.fontSize = (16 * scaleRatio) + 'px';
+
+    let isGlowing = false;
 
     lines.forEach(line => {
       const lineDiv = document.createElement('div');
@@ -740,35 +779,46 @@
         line.segments.forEach((seg, i) => {
           if (!seg.text) return;
 
-          const match = seg.text.match(/^(\s*)([\s\S]*)$/);
-          const leadingSpaces = match[1];
-          const actualText = match[2];
+          // Dividimos el segmento para aplicar correctamente el brillo sin mostrar los tags
+          const parts = seg.text.split(/(&\+|&-)/g);
 
-          let forcedSpace = '';
-          if (i > 0 && seg.size !== previousSize && leadingSpaces === '' && actualText !== '') {
-            forcedSpace = ' ';
-          }
+          parts.forEach(part => {
+            if (part === '&+') { isGlowing = true; return; }
+            if (part === '&-') { isGlowing = false; return; }
+            if (part === '') return;
 
-          const span = document.createElement('span');
-          span.textContent = leadingSpaces + forcedSpace + actualText;
-          span.style.color = seg.color;
-          if (seg.bold) span.style.fontWeight = 'bold';
-          if (seg.italic) span.style.fontStyle = 'italic';
+            const match = part.match(/^(\s*)([\s\S]*)$/);
+            const leadingSpaces = match[1];
+            const actualText = match[2];
 
-          let deco = [];
-          if (seg.underline) deco.push('underline');
-          if (seg.strike) deco.push('line-through');
-          if (deco.length) span.style.textDecoration = deco.join(' ');
+            let forcedSpace = '';
+            if (i > 0 && seg.size !== previousSize && leadingSpaces === '' && actualText !== '') {
+              forcedSpace = ' ';
+            }
 
-          const segScale = 1.0 + (seg.size * 0.01);
-          span.style.fontSize = segScale + 'em';
-          span.style.verticalAlign = 'middle';
+            const span = document.createElement('span');
+            span.textContent = leadingSpaces + forcedSpace + actualText;
+            span.style.color = seg.color;
+            if (seg.bold) span.style.fontWeight = 'bold';
+            if (seg.italic) span.style.fontStyle = 'italic';
 
-          lineDiv.appendChild(span);
+            let deco = [];
+            if (seg.underline) deco.push('underline');
+            if (seg.strike) deco.push('line-through');
+            if (deco.length) span.style.textDecoration = deco.join(' ');
 
-          if (actualText !== '') {
-            previousSize = seg.size;
-          }
+            const segScale = 1.0 + (seg.size * 0.01);
+            span.style.fontSize = segScale + 'em';
+            span.style.verticalAlign = 'middle';
+
+            if (isGlowing) span.classList.add('glow-text');
+
+            lineDiv.appendChild(span);
+
+            if (actualText !== '') {
+              previousSize = seg.size;
+            }
+          });
         });
       }
       box.appendChild(lineDiv);
@@ -777,7 +827,11 @@
 
   function updateOutputs() {
     const lines = getAllLinesStructure();
-    output.innerText = buildCommand();
+
+    // Asignar los dos outputs
+    document.getElementById('output-cmd-mod').innerText = buildCommand('mod');
+    document.getElementById('output-cmd-plugin').innerText = buildCommand('plugin');
+
     renderPreview(lines);
     const warnings = validateWarnings(lines);
     const c = document.getElementById('warn-container');
@@ -791,7 +845,6 @@
   function parseColorRuns(token, startStyle) {
     const runs = [];
     let currentStyle = { ...startStyle };
-    // Permitir parseo de &+ y &-
     const colorRegex = /&#([A-Fa-f0-9]{6})|&([0-9a-fk-orA-FK-OR+\-])/g;
     let lastEnd = 0, m;
     while ((m = colorRegex.exec(token)) !== null) {
@@ -800,7 +853,7 @@
       else {
         const code = m[2].toLowerCase();
         if (MC_CODE_TO_HEX[code]) currentStyle = { color: MC_CODE_TO_HEX[code], bold: false, italic: false, underline: false, strike: false };
-        else if (code === '+') {} // Ignite flag on web but nothing visually done
+        else if (code === '+') {} // Ignite flag on web handled in renderPreview
         else if (code === '-') {}
         else if (code === 'l') currentStyle = { ...currentStyle, bold: true };
         else if (code === 'm') currentStyle = { ...currentStyle, strike: true };
@@ -897,13 +950,23 @@
 
   function importCommand() {
     const raw = document.getElementById('import-text').value.trim();
-    if (!raw) { alert('Pega primero un comando /vctext.'); return; }
+    if (!raw) { alert('Pega primero un comando /vctext o /viciontmedia.'); return; }
     try {
       let s = raw;
-      if (s.startsWith('/vctext')) s = s.slice(7).trim();
+
+      // Permitir importación tanto desde el mod como desde el plugin
+      if (s.startsWith('/viciontmedia')) {
+        const parts = s.split(' ');
+        if(parts.length < 3 || parts[2].toLowerCase() !== 'text') {
+          throw new Error("El comando /viciontmedia no parece ser de 'text'.");
+        }
+        s = parts.slice(3).join(' ').trim();
+      } else if (s.startsWith('/vctext')) {
+        s = s.slice(7).trim();
+      }
+
       const parts = [];
       let rest = s;
-      // AHORA LEE 6 PARTES PORQUE SE HA AÑADIDO 'sync'
       for (let i = 0; i < 6; i++) {
         const m = rest.match(/^(\S+)\s+([\s\S]*)$/);
         if (!m) throw new Error('El comando parece incompleto (faltan parámetros antes del texto).');
@@ -954,12 +1017,12 @@
     }
   }
 
-  function copyCmd() {
-    navigator.clipboard.writeText(output.innerText).then(() => {
-      const btn = document.getElementById('copy-btn');
-      const old = btn.innerText;
-      btn.innerText = '¡Comando copiado!';
-      setTimeout(() => { btn.innerText = old; }, 1800);
+  function copyCmd(type, btnObj) {
+    const elId = type === 'plugin' ? 'output-cmd-plugin' : 'output-cmd-mod';
+    navigator.clipboard.writeText(document.getElementById(elId).innerText).then(() => {
+      const old = btnObj.innerText;
+      btnObj.innerText = '¡Copiado!';
+      setTimeout(() => { btnObj.innerText = old; }, 1800);
     });
   }
 
@@ -974,7 +1037,7 @@
   }
 
   function saveCommand() {
-    const cmd = output.innerText.trim();
+    const cmd = document.getElementById('output-cmd-mod').innerText.trim();
     if (!cmd) return alert("No hay ningún comando para guardar.");
 
     const name = prompt("Dale un nombre a este comando (Ej: Mensaje Misión 1):");
@@ -986,7 +1049,7 @@
     savedList.push({
       id: Date.now().toString(),
       name: name,
-      cmd: cmd,
+      cmd: cmd, // Se guarda el del Mod por defecto para que sea más limpio al reimportar
       date: dateStr
     });
 
