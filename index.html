@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Viciont Text - Editor de Comando</title>
+  <title>Viciont Text- Editor de Comando</title>
   <style>
     @font-face {
       font-family: 'Minecraft';
@@ -74,6 +74,7 @@
     .import-row button { flex-shrink:0; }
     .transparent-toggle { display:flex; align-items:center; gap:6px; margin-top:6px; font-size:12px; color:var(--muted); }
     .transparent-toggle input { width:auto; margin:0; }
+    .checkbox-container { display:flex; align-items:center; gap:8px; padding-top:12px; color:var(--text); font-size:13px; font-weight:600; }
 
     /* Estilos para lista de comandos guardados */
     .saved-item { display:flex; justify-content:space-between; align-items:center; background:var(--panel2); padding:12px; border-radius:8px; border:1px solid var(--border); gap: 10px; }
@@ -143,6 +144,10 @@
         </div>
       </div>
     </div>
+    <div class="checkbox-container">
+      <input type="checkbox" id="g-sync" checked>
+      <label for="g-sync" style="margin:0; font-size:13px; cursor:pointer;" title="Si está activo, al actualizar un texto no repetirá la animación de entrada.">Sincronizar (Evitar parpadeos al actualizar cronómetros)</label>
+    </div>
   </div>
 
   <div class="panel">
@@ -176,6 +181,11 @@
 
       <div class="divider"></div>
 
+      <button class="btn" onclick="insertMagicText('&+')" style="color:#f9e2af; border-color:#f9e2af;" title="El texto se ilumina con una onda suave">✨ Brillo ON (&+)</button>
+      <button class="btn" onclick="insertMagicText('&-')" style="color:#f38ba8; border-color:#f38ba8;" title="El texto deja de brillar a partir de aquí">❌ Brillo OFF (&-)</button>
+
+      <div class="divider"></div>
+
       <button class="btn" onclick="adjustSize(5)">+5%</button>
       <button class="btn" onclick="adjustSize(1)">+1%</button>
       <button class="btn" onclick="adjustSize(-1)">-1%</button>
@@ -183,13 +193,10 @@
       <button class="btn" onclick="setAbsoluteSize(0)">0% Normal</button>
       <input type="number" id="i-custom-size" placeholder="%" title="Tamaño personalizado (valor exacto)">
       <button class="btn" onclick="applyCustomSizeBtn()">Aplicar %</button>
-
-      <div class="divider"></div>
-      <button class="btn" onclick="insertUnicode()">Añadir Unicode</button>
     </div>
     <div class="toolbar-hint">
-      Haz clic dentro de una línea, selecciona el texto que quieras y aplica el formato — puedes mezclar colores y estilos libremente dentro de una misma línea.<br>
-      <strong>Nota de tamaños:</strong> Si aplicas un cambio de tamaño a la mitad de una palabra, la web insertará un espacio invisible en el comando generado para que el mod de Minecraft (el cual divide las configuraciones por espacios) pueda entenderlo correctamente.
+      Haz clic dentro de una línea, selecciona el texto que quieras y aplica el formato. <br>
+      <strong>✨ Brillo ON:</strong> Al poner esto, la onda mágica empezará en ese punto y seguirá hasta que pongas un <strong>❌ Brillo OFF</strong>. (Solo lo verás brillar dentro del juego).
     </div>
 
     <div id="lines-container"></div>
@@ -240,7 +247,7 @@
   // ==========================================================
   //  SETTINGS GLOBALES
   // ==========================================================
-  let settings = { globalSize: 0, animation: 'fade', bgColor: '#000000', bgTransparent: false, duration: 5, position: 'center', posX: 50, posY: 50 };
+  let settings = { globalSize: 0, animation: 'fade', bgColor: '#000000', bgTransparent: false, duration: 5, position: 'center', posX: 50, posY: 50, sync: true };
   const gAnim = document.getElementById('g-anim');
   const gPos = document.getElementById('g-pos');
   const gPosCustomWrap = document.getElementById('g-pos-custom-wrap');
@@ -250,11 +257,13 @@
   const gGsize = document.getElementById('g-gsize');
   const gBgColor = document.getElementById('g-bgcolor');
   const gBgTransparent = document.getElementById('g-bg-transparent');
+  const gSync = document.getElementById('g-sync');
 
   function syncGlobalFromSettings() {
     gAnim.value = settings.animation; gDur.value = settings.duration; gGsize.value = settings.globalSize;
     gBgColor.value = settings.bgTransparent ? '#000000' : settings.bgColor;
     gBgTransparent.checked = settings.bgTransparent;
+    gSync.checked = settings.sync;
     if (['topleft','topright','bottomleft','bottomright','center'].includes(settings.position)) {
       gPos.value = settings.position; gPosCustomWrap.style.display = 'none';
     } else {
@@ -274,6 +283,8 @@
     });
   });
   gBgTransparent.addEventListener('change', () => { settings.bgTransparent = gBgTransparent.checked; updateOutputs(); });
+  gSync.addEventListener('change', () => { settings.sync = gSync.checked; updateOutputs(); });
+
   gPos.addEventListener('change', () => {
     settings.position = gPos.value;
     gPosCustomWrap.style.display = gPos.value === 'custom' ? 'block' : 'none';
@@ -451,6 +462,16 @@
       saveCurrentSelection();
       updateOutputs();
     }
+  }
+
+  function insertMagicText(tag) {
+    const ed = currentEditor();
+    if (!ed) { alert('Haz clic dentro de una línea de texto primero.'); return; }
+    restoreSavedSelection();
+    document.execCommand('insertText', false, tag);
+    ed.focus();
+    saveCurrentSelection();
+    updateOutputs();
   }
 
   function clearFormatting() {
@@ -673,7 +694,8 @@
     const textArg = lineStrings.join('\\n');
     const pos = settings.position === 'custom' ? `${settings.posX},${settings.posY}` : settings.position;
     const bg = settings.bgTransparent ? 'none' : settings.bgColor;
-    return `/vctext ${settings.globalSize} ${settings.animation} ${bg} ${settings.duration} ${pos} ${textArg}`;
+    // Ahora el comando de /vctext incluye el booleano 'sync'
+    return `/vctext ${settings.globalSize} ${settings.animation} ${bg} ${settings.duration} ${pos} ${settings.sync} ${textArg}`;
   }
 
   // ==========================================================
@@ -769,7 +791,8 @@
   function parseColorRuns(token, startStyle) {
     const runs = [];
     let currentStyle = { ...startStyle };
-    const colorRegex = /&#([A-Fa-f0-9]{6})|&([0-9a-fk-orA-FK-OR])/g;
+    // Permitir parseo de &+ y &-
+    const colorRegex = /&#([A-Fa-f0-9]{6})|&([0-9a-fk-orA-FK-OR+\-])/g;
     let lastEnd = 0, m;
     while ((m = colorRegex.exec(token)) !== null) {
       if (m.index > lastEnd) runs.push({ text: token.slice(lastEnd, m.index), style: { ...currentStyle } });
@@ -777,6 +800,8 @@
       else {
         const code = m[2].toLowerCase();
         if (MC_CODE_TO_HEX[code]) currentStyle = { color: MC_CODE_TO_HEX[code], bold: false, italic: false, underline: false, strike: false };
+        else if (code === '+') {} // Ignite flag on web but nothing visually done
+        else if (code === '-') {}
         else if (code === 'l') currentStyle = { ...currentStyle, bold: true };
         else if (code === 'm') currentStyle = { ...currentStyle, strike: true };
         else if (code === 'n') currentStyle = { ...currentStyle, underline: true };
@@ -878,24 +903,29 @@
       if (s.startsWith('/vctext')) s = s.slice(7).trim();
       const parts = [];
       let rest = s;
-      for (let i = 0; i < 5; i++) {
+      // AHORA LEE 6 PARTES PORQUE SE HA AÑADIDO 'sync'
+      for (let i = 0; i < 6; i++) {
         const m = rest.match(/^(\S+)\s+([\s\S]*)$/);
         if (!m) throw new Error('El comando parece incompleto (faltan parámetros antes del texto).');
         parts.push(m[1]); rest = m[2];
       }
-      const [gsizeStr, animationStr, bgColorStr, durationStr, posStr] = parts;
+      const [gsizeStr, animationStr, bgColorStr, durationStr, posStr, syncStr] = parts;
       const text = rest;
 
       settings.globalSize = parseInt(gsizeStr, 10) || 0;
       settings.animation = animationStr.toLowerCase();
       settings.duration = parseInt(durationStr, 10) || 5;
+
       const bgLower = bgColorStr.toLowerCase();
       if (bgLower === 'none' || bgLower === 'transparent') settings.bgTransparent = true;
       else { settings.bgTransparent = false; settings.bgColor = bgColorStr.startsWith('#') ? bgColorStr : ('#' + bgColorStr); }
+
       if (posStr.includes(',')) {
         const [x, y] = posStr.split(',');
         settings.position = 'custom'; settings.posX = parseFloat(x) || 0; settings.posY = parseFloat(y) || 0;
       } else settings.position = posStr.toLowerCase();
+
+      settings.sync = syncStr.toLowerCase() === 'true';
 
       const unescaped = unescapeUnicodeJS(text).replace(/\\n/g, '\n');
       const rawLines = unescaped.split('\n');
@@ -948,7 +978,7 @@
     if (!cmd) return alert("No hay ningún comando para guardar.");
 
     const name = prompt("Dale un nombre a este comando (Ej: Mensaje Misión 1):");
-    if (!name) return; // Si cancela o deja vacío, no hacemos nada
+    if (!name) return;
 
     const savedList = getSavedCommands();
     const dateStr = new Date().toLocaleString();
@@ -985,18 +1015,16 @@
     panel.style.display = 'block';
     listDiv.innerHTML = '';
 
-    savedList.slice().reverse().forEach(item => { // Invertimos para que el más nuevo salga arriba
+    savedList.slice().reverse().forEach(item => {
       const div = document.createElement('div');
       div.className = 'saved-item';
 
-      // Textos
       const infoDiv = document.createElement('div');
       infoDiv.innerHTML = `
                 <div class="saved-item-title">${esc(item.name)}</div>
                 <span class="saved-item-date">${item.date}</span>
             `;
 
-      // Botones
       const actionsDiv = document.createElement('div');
       actionsDiv.className = 'saved-item-actions';
 
@@ -1006,7 +1034,7 @@
       btnLoad.onclick = () => {
         document.getElementById('import-text').value = item.cmd;
         importCommand();
-        window.scrollTo({top: 0, behavior: 'smooth'}); // Sube al inicio suavemente
+        window.scrollTo({top: 0, behavior: 'smooth'});
       };
 
       const btnCopy = document.createElement('button');
@@ -1034,9 +1062,8 @@
     });
   }
 
-  // Inicializar todo al arrancar
   syncGlobalFromSettings();
-  renderSavedCommands(); // Cargar la lista guardada al inicio
+  renderSavedCommands();
   const firstBlock = createLineBlock('text', 'center');
   firstBlock.querySelector('.line-editor').textContent = '¡Hola Mundo!';
   linesContainer.appendChild(firstBlock);
